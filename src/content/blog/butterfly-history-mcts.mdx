@@ -1,0 +1,256 @@
+---
+title: "Improving the State of the Art: Adapting an α–β search technique for Monte-Carlo Tree Search in Chess"
+date: "Oct. 26 2025"
+excerpt: "This is a sample blog post to demonstrate the MDX functionality."
+---
+
+## Context
+In general, two popular game solving algorithms dominate the computer chess space:
+1. Minimax with α–β pruning
+2. Monte-Carlo Tree Search (MCTS)
+<br>
+
+For a zero-sum game like chess (meaning a gain for one side is exactly the other side's loss), many chess engines implementing minimax
+will use a simpler variant negamax. Negamax is far more popular among top chess engines like Stockfish due to its simplicity and decades worth of research and algorithmic improvements for chess.
+It wasn't until Google DeepMind published their <a href="https://arxiv.org/abs/1712.01815">AlphaZero paper</a> in 2017 which provided key improvements to MCTS that made it
+a viable competitor to negamax. After the publishing of this paper, several Stockfish developers left the project to develop Leela Chess Zero, which reimplemented
+and improved upon the unique implementation of MCTS for chess detailed in the AlphaZero paper with large success.
+<br><br>
+While negamax with α–β pruning is tried-and-true and has been wrung out with hundreds of documented improvements, MCTS in chess is still a severely uncharted
+territory. An educated guess gives less than ten actively developed chess engines implementing the MCTS algorithm and hundreds that implement negamax.
+<br><br>
+
+# History of moves in α–β
+α–β pruning relies heavily on an having a good guess as to how to order which moves to search in a position. One popular technique that negamax engines use to order which moves are searched first is **history**: a table (or set of tables) that keep a running "score" for how good a certain move is. Often
+times, a move that was good in one position will be good in a different, but similar position. When one move proves to be (one of) the best in a position, its history score gets updated so that the same move
+will be searched earlier than others in a different position. History remains to be the most powerful method to order the way
+in which moves are searched for chess engines using negamax with α–β pruning. Let's briefly take a look at some code for how history works.
+
+```cpp
+Score history[NUM_SIDES][NUM_SQUARES][NUM_SQUARES];
+
+[[nodiscard]] Score history_bonus(...) {
+  ... can be defined in many different ways
+}
+
+void update_history(Color side_to_move, Move move) {
+  history[side_to_move][move.from()][move.to()] += history_bonus();
+}
+
+// α: initially -INFINITY, the minimum score we're guaranteed
+// β: initially +INFINITY, the maximum score the opponent allows us
+Score search(int depth, Score alpha, Score beta) {
+  // Leaf node, return an evaluation of the position
+  if (depth <= 0) {
+    return evaluate();
+  }
+
+  auto best_score = -INFINITY;
+  auto move_list = generate_moves();
+
+  // Sort moves descending by history score
+  sort(move_list.begin(), move_list.end(), [&](const Move &one, const Move &two) {
+    return history[side_to_move][one.from()][one.to()] >
+           history[side_to_move][two.from()][two.to()];
+  });
+
+  for (const auto move : move_list) {
+    play_move(move);
+    const auto child_score = -search(depth - 1, -beta, -alpha);
+    undo_move();
+
+    if (child_score > best_score) {
+      best_score = child_score;
+      alpha = best_score;
+
+      // α beat β, meaning this line is so good for us
+      // that our opponent wouldn't have allowed us to enter it.
+      // We can save time by not searching this node anymore.
+      if (alpha >= beta) {
+        // This move proved to be really good, let's save it
+        // for future move ordering.
+        update_history(move);
+        break;
+      }
+    }
+  }
+
+  return best_score;
+}
+```
+As shown in the code, a history bonus is given to a move when a β cutoff occurs. The history table can take many different forms, but the most common shape is a 2 by 64 by 64 table indexed by the side to move, the move's from square, and the move's to square. This
+shape of history table is commonly known as a **butterfly table**. It's the same shape of history table that I used when adapting this idea for MCTS.
+<br><br>
+
+# How did I improve MCTS for chess?
+Rather than ordering moves via history tables, state-of-the-art MCTS algorithms for chess use machine-learning models, namely, **policy networks**, to give an estimate for how good a move in a certain position is. 
+For reasons that won't be covered in this blog, policy networks are currently inferior to the traditional history approach for ordering moves in negamax (though there are ongoing attempts to prove they are viable). However, they are the current
+best approach for ordering moves in MCTS chess engines.
+<br><br>
+While developing my MCTS chess engine, Vine, I thought that implementing history tables into MCTS could fix any shortcomings that the policy network 
+may have in its knowledge. By quantifying how well a move performed in the past, we could use that information to influence the score assigned to each move by the policy network. Let's get into specifics here.
+<br>
+
+### First off, what is a node in MCTS?
+A node in MCTS is an object that stores information about a chess position. For optimization reasons, node's typically don't encode the entire chess position that they represent, rather they store the chess move that
+leads to the node. If you are given a tree of nodes and a starting position, you can play the moves as you travel down to a node to reach the position that node represents. In Vine, this is how I define a `Node`:
+```cpp
+struct Node {
+  // Sum of all scores that have been propagated back to this node
+  f64 sum_of_scores = 0.0;
+  // Policy given to us by our parent node
+  f32 policy_score = 0.0;
+  // Index of the first child in the node table
+  NodeIndex first_child_idx = NodeIndex::none();
+  // Number of times this node has been visited
+  u32 num_visits = 0;
+  // Move that led into this node
+  Move move = Move::null();
+  // Number of legal moves this node has
+  u16 num_children = 0;
+  // What kind of state this (terminal) node is
+  TerminalState terminal_state = TerminalState::none();
+
+  [[nodiscard]] bool visited() const;
+  [[nodiscard]] bool terminal() const;
+  [[nodiscard]] bool expanded() const;
+  // Average of all scores this node has received
+  [[nodiscard]] f64 q() const;
+};
+```
+The **game tree** is then defined as a tree of nodes that encode the relationships between nodes which also represent the possible lines of chess moves from a starting position.
+
+### High-level Overview of MCTS
+MCTS is a four step process repeated multiple times, known as **iterations**. It's important to have at least a surface-level understanding of all four steps of an iteration to understand how I adapted history to work in MCTS.
+
+### Selection
+Starting from the root of the game tree, selection determines which node to expand next. It will recursively descend child nodes using the Predictor + Upper Confidence for Trees (PUCT) formula until it finds a node that has not been expanded yet. What's important to remember here is that the *Predictor* part of the PUCT formula 
+is the score of a move associated with the child node, given by the policy network. The *Predictor*, aka the policy score, is a large influence in what node gets explored next in each MCTS iteration.
+
+### Expansion
+Once a node has been selected to be expanded, MCTS will create new child nodes for each legal move in the current position. Traditionally, the policy scores associated with each child node are also calculated during expansion.
+
+### Simulation
+After the selected node gets expanded, we need to estimate how good this node is. An initial score for the node is typically obtained using a separate **value network** or as a part of one larger network that combines the policy and value outputs together.
+
+### Backpropagation
+Now that we have obtained a score for the node that we just expanded, we must propagate that score back up to all the ancestor nodes that led to the currently selected node. Recall the `Node` structure that we defined earlier.
+Each time a child node gets backpropagated to an ancestor node's score, that score gets added to `sum_of_scores` and increments the `num_visits`. The score (**Q**) of a node is given as the average of all of the backpropagated score's the node has received.
+<br><br>
+After backpropagation, the algorithm repeats until the search stops, i.e. meets some condition such as a time or resource constraint.
+On the next iteration, the selection will choose the next node to explore using the information it saved in the past, like the **Q** of a node and its policy scores.
+<br><br>
+
+## Where does history play into this?
+Earlier I noted that once a node is selected to be expanded, we also decide to compute the policy scores for each child node's move. Because the policy score acts as an initial guess as to how good a move is relative to the other moves,
+this is the perfect place to make use of past knowledge (like the history of this move) to influence the policy score. Here is some example code that shows how I accomplished this in Vine:
+
+```cpp
+void GameTree::compute_policy(const BoardState &state, NodeIndex node_idx) {
+  Node &node = node_at(node_idx);
+
+  // We keep track of a policy context so that we only accumulate once per node
+  const network::policy::PolicyContext ctx(state);
+
+  for (u16 i = 0; i < node.num_children; ++i) {
+    Node &child = node_at(node.first_child_idx + i);
+
+    // Compute policy output for this move
+    const auto history_score = history_.entry(board_.state(), child.move).value / 16384.0;
+    child.policy_score = ctx.logit(child.move) + history_score; // History is applied here to each policy score (logit) we obtain!
+  }
+
+  // Softmax and normalize the policy scores so that we get a distribution that adds to 1
+  ... 
+}
+```
+
+This is also how I implemented a wrapper for the butterfly history table:
+```cpp
+[[nodiscard]] i16 scale_bonus(i16 score, i16 bonus) {
+  return bonus - score * std::abs(bonus) / 8192;
+}
+
+void History::Entry::update(f64 score) {
+  score = std::clamp(score, 0.001, 0.999);
+  value += scale_bonus(value, static_cast<i32>(network::value::EVAL_SCALE * util::math::inverse_sigmoid(score)));
+}
+
+void History::clear() {
+  table_ = {};
+}
+
+History::Entry &History::entry(const BoardState &state, Move move) {
+  return table_[state.side_to_move][move.from()][move.to()];
+}
+```
+
+The most important thing to note about this implementation is the `update` function. Recall that once a node has been selected and expanded, it is then simulated (attributed
+a score by a value network). That score is then backpropagated to all ancestors of that node. The `update` function takes in one argument, `score`, which is this same score that is obtained during the simulation stage of an iteration.
+It then does some manipulation to the score, because when we simulate the score we also sigmoid it, which just maps a linear score to a nonlinear score within a suitable range like [0.0, 1.0] where 0 means completely lost and 1 means completely won.
+This implementation converts the score back to a linear space through the `inverse_sigmoid` function which allows us to do two things:
+1. Represent the score as an integer (faster)
+2. Add together these scores to express the cumulative influence of multiple updates in a way that preserves proportionality between outcomes, avoiding the distortion that would occur if we averaged in sigmoid (nonlinear) space.
+   Sorry for that mouthful, there just isn't a better way to express this.
+
+<br>
+Now that we've shown how the history score gets used and how the score gets computed, let's take a look at where the history updates actually occur in the backpropagation step:
+
+```cpp
+void GameTree::backpropagate_score(f64 score) {
+    while (!nodes_in_path_.empty()) {
+        const auto node_idx = nodes_in_path_.pop_back();
+
+        // A node's score is the average of all of its children's score
+        auto &node = node_at(node_idx);
+        node.sum_of_scores += score;
+        node.num_visits++;
+
+        // Negate the score to match the perspective of the next node
+        score = 1.0 - score;
+
+        // Undo all moves except the move that led to the root node
+        if (!nodes_in_path_.empty()) {
+            board_.undo_move();
+
+            // Update the history for this move to influence new node policy scores
+            history_.entry(board_.state(), node.move).update(score);
+        }
+    }
+}
+```
+After a leaf node gets simulated, all of its ancestor nodes will add that score to to their `sum_of_scores`. In similar vein, each ancestor node's move will also have its history score updated as a function of that score. 
+The key thing to understand here is that because a node stores the move that *led* into it, we need to update the history table from the perspective of the parent node. Therefore, when computing the policy score for a child node, we are able to look up the history entry for each possible move we could play.
+
+<br>
+
+There's one last thing to note about this implementation of history in MCTS. Because of the way MCTS works, the game tree is constructed, modified, and stored to be expanded in the next iteration. This is different than the way negamax works, where the **search tree** is constructed on-the-fly, and there is no direct relationship
+of search nodes that are stored in memory. As such, when negamax encounters the exact same position as before, the history of the moves can be different than the last time that position was searched before, perhaps with more accurate history data. There is no "snapshot" of the move ordering stored in negamax like there is for policy scores being saved per node in MCTS.
+This means that when nodes have their policy scores computed for the first time (during expansion), we also store a snapshot of what the history looked like at the time. If the history entry for that move becomes more accurate because that same move was played in different nodes, we can't update the existing policy scores to reflect that change without incurring a decent slowdown (have to compute scores, softmax, re-normalize again each time the history updates).
+I've made some failed attempts to try to refresh the policy score of a node with an updated history score every `n` iterations.
+
+<br>
+
+## Test Results for Butterfly History in MCTS
+In my engine, Vine, this patch passed with 10.42 +- 5.75 Elo
+```
+Elo   | 10.42 +- 5.75 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=16MB
+LLR   | 3.03 (-2.25, 2.89) [0.00, 5.00]
+Games | N: 4738 W: 1149 L: 1007 D: 2582
+Penta | [43, 530, 1110, 614, 72]
+```
+https://furybench.com/test/3244/
+
+<br>
+Butterfly history in MCTS has even had success in two other strong engines:
+
+- <a href="https://github.com/official-monty/Monty/pull/118">Monty</a> with 6 elo
+- <a href="https://github.com/TomaszJaworski777/Jackal/pull/77">Jackal</a> with a surprising 34 elo
+
+<br>
+
+# Closing Thoughts
+The observed Elo gain from maintaining a move history table in MCTS is significantly less than what you would find in a negamax engine (upwards of 100 Elo), but still a large amount nonetheless.
+This is most likely because these MCTS engines already use a neural network to compute a score for a move, so the history table acts more as a correction for misevaluations. It's extremely interesting to me that
+this idea can work in two fundamentally different game solving algorithms. I'm curious, what other ideas can be applied from decades of α–β research to MCTS?

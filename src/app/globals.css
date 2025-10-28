@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0b0b0b;
+  --foreground: #ddd;
+  --link: #ddd;
+  --link-hover: #fff;
+  --panel-bg: rgb(20, 20, 20);
+  --panel-bg-hover: rgb(24, 24, 24);
+  --panel-border: rgba(255, 255, 255, 0.12);
+  --muted-text: #b8b8b8; /* maps roughly to gray-300/90 */
+  --subtle-text: #9ca3af; /* gray-400 */
+  --subtler-text: #6b7280; /* gray-500 */
+}
+
+/* Light theme overrides applied when <html class="light"> */
+.light {
+  --background: #fafafa;
+  --foreground: #111;
+  --link: #1a1a1a;
+  --link-hover: #7b7b7b;
+  --panel-bg: #ffffff;
+  --panel-bg-hover: #f5f5f5;
+  --panel-border: rgba(0, 0, 0, 0.08);
+  --muted-text: #444;
+  --subtle-text: #555;
+  --subtler-text: #666;
+}
+
+html, body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.00) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.00) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-attachment: fixed;
+}
+
+a {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: currentColor;
+  transition: color 175ms ease, text-decoration-color 175ms ease;
+}
+
+a:hover {
+  color: var(--link-hover);
+}
+
+/* Smooth hover for panels and project titles */
+.panel {
+  background-color: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  transition: background-color 175ms ease, border-color 175ms ease;
+}
+
+.panel:hover {
+  background-color: var(--panel-bg-hover);
+  border-color: var(--panel-border);
+}
+
+.project-title {
+  transition: color 175ms ease;
+}
+
+/* Theme-aware title color per project via CSS variables set inline */
+.project-card .project-title {
+  color: var(--project-title-dark, currentColor);
+}
+.light .project-card .project-title {
+  color: var(--project-title-light, currentColor);
+}
+
+/* Minimal prose */
+.prose { max-width: 65ch; }
+.prose h1 { font-size: 1.25rem; font-weight: 600; margin: 1rem 0 .5rem; }
+.prose h2 { font-size: 1.125rem; font-weight: 600; margin: 1rem 0 .5rem; }
+.prose h3 { font-size: 1rem; font-weight: 600; margin: 1rem 0 .5rem; }
+/* Ordered and unordered lists */
+.prose ol { list-style: decimal; padding-left: 1.25rem; margin: .5rem 0; }
+.prose ul { list-style: disc; padding-left: 1.25rem; margin: .5rem 0; }
+.prose li { margin: .25rem 0; }
+
+/* Small superscript for inline asterisks */
+.prose sup {
+  font-size: 0.7em;
+  vertical-align: middle;
+  margin-left: 2px;
+}
+
+/* Code blocks styling */
+.prose pre {
+  background: color-mix(in oklab, var(--background), black 8%);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: .75rem;
+  overflow: auto;
+  margin: 1rem 0;
+}
+.light .prose pre {
+  background: color-mix(in oklab, var(--background), black 2%);
+}
+.prose code {
+  font-size: 0.9rem;
+  font-family: var(--font-geist-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+}
+
+/* Minimal highlight.js token colors (works without theme CSS) */
+.hljs-comment,.hljs-quote{color:#9aa0a6}
+.hljs-keyword,.hljs-selector-tag,.hljs-subst{color:#c792ea}
+.hljs-number,.hljs-literal,.hljs-variable{color:#f78c6c}
+.hljs-string,.hljs-doctag,.hljs-title{color:#ecc48d}
+.hljs-type,.hljs-class .hljs-title{color:#82aaff}
+.hljs-tag,.hljs-name,.hljs-attribute{color:#c3e88d}
+.light .hljs-comment,.light .hljs-quote{color:#6b7280}
+.light .hljs-keyword,.light .hljs-selector-tag,.light .hljs-subst{color:#6f42c1}
+.light .hljs-number,.light .hljs-literal,.light .hljs-variable{color:#b45309}
+.light .hljs-string,.light .hljs-doctag,.light .hljs-title{color:#b45309}
+.light .hljs-type,.light .hljs-class .hljs-title{color:#1d4ed8}
+.light .hljs-tag,.light .hljs-name,.light .hljs-attribute{color:#047857}
+
+/* Utility to suppress underline within an underlined link */
+.no-underline-block { text-decoration: none; display: inline-block; }
+.link-no-underline { text-decoration: none !important; }
+
+.project-desc { color: var(--muted-text); }
+
+.panel {
+  background-color: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+}
+
+/* Typography helpers */
+.title-case { text-transform: capitalize; }
+.sentence-first::first-letter { text-transform: uppercase; }
+
+/* Theme-aware overrides for a few commonly used Tailwind utility classes */
+.text-gray-300\/90 { color: var(--muted-text) !important; }
+.text-gray-400 { color: var(--subtle-text) !important; }
+.text-gray-500 { color: var(--subtler-text) !important; }
+.border-white\/10 { border-color: var(--panel-border) !important; }
+
+/* Theme toggle hover and centering */
+.theme-toggle {
+  background-color: color-mix(in oklab, var(--background), white 8%);
+  transition: background-color 175ms ease, transform 175ms ease;
+  line-height: 1; /* tighter vertical centering */
+}
+.theme-toggle:hover {
+  background-color: color-mix(in oklab, var(--background), white 12%);
+  transform: translateY(0.5px); /* subtle hover feel */
+}
+.light .theme-toggle {
+  background-color: color-mix(in oklab, var(--background), black 4%);
+}
+.light .theme-toggle:hover {
+  background-color: color-mix(in oklab, var(--background), black 8%);
+}
