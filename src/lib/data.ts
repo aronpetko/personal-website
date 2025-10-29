@@ -10,7 +10,7 @@ export const experiences: Experience[] = [
     description: [
       'Developed 20+ analysis types within a distributed game analysis engine that classified players’ strengths and weaknesses using chess engine evaluations.',
       'Engineered Lua-based chess bots with fine-tuned weights for probabilistic decision-making, increasing player vs. bot satisfaction by 40%.',
-      'Boosted daily game review usage by 5% by creating an extensible analysis system with customizable, coach-like feedback integrated with Google Sheets.',
+      'Boosted daily game review usage by creating an extensible analysis system with customizable, coach-like feedback integrated with Google Sheets.',
       'Extended internal Python scripts to document analysis type changes and support multiple data formats.'
     ],
     technologies: ['Python', 'Lua', 'Google Sheets API', 'Distributed Systems', 'Data Pipelines']
@@ -22,7 +22,7 @@ export const experiences: Experience[] = [
     startDate: 'May 2024',
     endDate: 'Aug. 2024',
     description: [
-      'Refactored 30% of a back-end insurance quoting API written in Gosu to follow SOLID principles, reducing technical debt and improving maintainability.',
+      'Refactored a back-end insurance quoting API written in Gosu to follow SOLID principles, reducing technical debt and improving maintainability.',
       'Fixed 12 React front-end components and redesigned them for UX compliance, improving agent workflow efficiency.',
       'Implemented unit tests with Mockito to increase coverage by 20% and reduce production defect rates.'
     ],
@@ -35,7 +35,7 @@ export const experiences: Experience[] = [
     startDate: 'Jan. 2019',
     endDate: 'Present',
     description: [
-      'Created advanced Minecraft modding software used by 70k+ users, generating over $150k in gross profit.',
+      'Created advanced Minecraft modding software used by 70k+ users, generating enough gross profit to cover my college tuition.',
       'Developed and deployed a responsive website using Bootstrap, PHP, and MySQL on AWS EC2.',
       'Implemented C++ DLL injection with JNI for in-game features and designed an OpenGL GUI for customization.',
       'Led a 6-person team, building a custom ticketing system for customer support and issue resolution.'
