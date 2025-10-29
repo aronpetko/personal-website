@@ -51,7 +51,7 @@ export const projects: Project[] = [
     description: 'A top-10 chess engine using alpha/beta + minimax search and a multi-layer neural network. Several search algorithm innovations in Integral have been implemented in other strong engines, such as Stockfish.',
     technologies: ['c++', 'machine learning', 'python', 'rust', 'alpha/beta', 'minimax'],
     githubUrl: 'https://github.com/aronpetko/integral',
-    liveUrl: 'https://lichess.org/user/IntegralBot',
+    liveUrl: 'https://lichess.org/@/IntegralBot',
     color: '#a8e6cf'
   },
   {
@@ -59,7 +59,6 @@ export const projects: Project[] = [
     title: 'Entropy Client',
     description: 'Advanced minecraft modding software designed to improve the vanilla experience for players. It supports various features, including Aim Assist, ESP, and more. It is one of the most popular clients in Minecraft, serving 70k+ users.',
     technologies: ['c++', 'jni', 'reverse engineering', 'sql', 'php', 'bootstrap', 'js'],
-    githubUrl: 'https://github.com/yourusername/task-manager',
     liveUrl: 'https://entropy.club',
     color: '#fff3b0'
   },

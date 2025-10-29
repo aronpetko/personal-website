@@ -1,7 +1,7 @@
 ---
 title: "Improving the State of the Art: Adapting an α–β search technique for Monte-Carlo Tree Search in Chess"
 date: "Oct. 26 2025"
-excerpt: "This is a sample blog post to demonstrate the MDX functionality."
+excerpt: "A technical writeup of how the Monte-Carlo Tree Search algorithm for chess engines was improved by implementing a common heuristic used in α–β chess engines."
 ---
 
 ## Context
@@ -61,16 +61,18 @@ Score search(int depth, Score alpha, Score beta) {
 
     if (child_score > best_score) {
       best_score = child_score;
-      alpha = best_score;
 
-      // α beat β, meaning this line is so good for us
-      // that our opponent wouldn't have allowed us to enter it.
-      // We can save time by not searching this node anymore.
-      if (alpha >= beta) {
-        // This move proved to be really good, let's save it
-        // for future move ordering.
-        update_history(move);
-        break;
+      if (best_score >= alpha) {
+        alpha = best_score;
+        // α beat β, meaning this line is so good for us
+        // that our opponent wouldn't have allowed us to enter it.
+        // We can save time by not searching this node anymore.
+        if (alpha >= beta) {
+          // This move proved to be really good, let's save it
+          // for future move ordering.
+          update_history(move);
+          break;
+        }
       }
     }
   }
