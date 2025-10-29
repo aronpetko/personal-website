@@ -30,54 +30,54 @@ in which moves are searched for chess engines using negamax with α–β pruning
 Score history[NUM_SIDES][NUM_SQUARES][NUM_SQUARES];
 
 [[nodiscard]] Score history_bonus(...) {
-  ... can be defined in many different ways
+    ... can be defined in many different ways
 }
 
 void update_history(Color side_to_move, Move move) {
-  history[side_to_move][move.from()][move.to()] += history_bonus();
+    history[side_to_move][move.from()][move.to()] += history_bonus();
 }
 
 // α: initially -INFINITY, the minimum score we're guaranteed
 // β: initially +INFINITY, the maximum score the opponent allows us
 Score search(int depth, Score alpha, Score beta) {
-  // Leaf node, return an evaluation of the position
-  if (depth <= 0) {
-    return evaluate();
-  }
-
-  auto best_score = -INFINITY;
-  auto move_list = generate_moves();
-
-  // Sort moves descending by history score
-  sort(move_list.begin(), move_list.end(), [&](const Move &one, const Move &two) {
-    return history[side_to_move][one.from()][one.to()] >
-           history[side_to_move][two.from()][two.to()];
-  });
-
-  for (const auto move : move_list) {
-    play_move(move);
-    const auto child_score = -search(depth - 1, -beta, -alpha);
-    undo_move();
-
-    if (child_score > best_score) {
-      best_score = child_score;
-
-      if (best_score >= alpha) {
-        alpha = best_score;
-        // α beat β, meaning this line is so good for us
-        // that our opponent wouldn't have allowed us to enter it.
-        // We can save time by not searching this node anymore.
-        if (alpha >= beta) {
-          // This move proved to be really good, let's save it
-          // for future move ordering.
-          update_history(move);
-          break;
-        }
-      }
+    // Leaf node, return an evaluation of the position
+    if (depth <= 0) {
+        return evaluate();
     }
-  }
 
-  return best_score;
+    auto best_score = -INFINITY;
+    auto move_list = generate_moves();
+
+    // Sort moves descending by history score
+    sort(move_list.begin(), move_list.end(), [&](const Move &one, const Move &two) {
+        return history[side_to_move][one.from()][one.to()] >
+              history[side_to_move][two.from()][two.to()];
+    });
+
+    for (const auto move : move_list) {
+        play_move(move);
+        const auto child_score = -search(depth - 1, -beta, -alpha);
+        undo_move();
+
+        if (child_score > best_score) {
+            best_score = child_score;
+
+            if (best_score >= alpha) {
+                alpha = best_score;
+                // α beat β, meaning this line is so good for us
+                // that our opponent wouldn't have allowed us to enter it.
+                // We can save time by not searching this node anymore.
+                if (alpha >= beta) {
+                    // This move proved to be really good, let's save it
+                    // for future move ordering.
+                    update_history(move);
+                    break;
+                }
+            }
+        }
+    }
+
+    return best_score;
 }
 ```
 As shown in the code, a history bonus is given to a move when a β cutoff occurs. The history table can take many different forms, but the most common shape is a 2 by 64 by 64 table indexed by the side to move, the move's from square, and the move's to square. This
@@ -98,26 +98,26 @@ A node in MCTS is an object that stores information about a chess position. For 
 leads to the node. If you are given a tree of nodes and a starting position, you can play the moves as you travel down to a node to reach the position that node represents. In Vine, this is how I define a `Node`:
 ```cpp
 struct Node {
-  // Sum of all scores that have been propagated back to this node
-  f64 sum_of_scores = 0.0;
-  // Policy given to us by our parent node
-  f32 policy_score = 0.0;
-  // Index of the first child in the node table
-  NodeIndex first_child_idx = NodeIndex::none();
-  // Number of times this node has been visited
-  u32 num_visits = 0;
-  // Move that led into this node
-  Move move = Move::null();
-  // Number of legal moves this node has
-  u16 num_children = 0;
-  // What kind of state this (terminal) node is
-  TerminalState terminal_state = TerminalState::none();
+    // Sum of all scores that have been propagated back to this node
+    f64 sum_of_scores = 0.0;
+    // Policy given to us by our parent node
+    f32 policy_score = 0.0;
+    // Index of the first child in the node table
+    NodeIndex first_child_idx = NodeIndex::none();
+    // Number of times this node has been visited
+    u32 num_visits = 0;
+    // Move that led into this node
+    Move move = Move::null();
+    // Number of legal moves this node has
+    u16 num_children = 0;
+    // What kind of state this (terminal) node is
+    TerminalState terminal_state = TerminalState::none();
 
-  [[nodiscard]] bool visited() const;
-  [[nodiscard]] bool terminal() const;
-  [[nodiscard]] bool expanded() const;
-  // Average of all scores this node has received
-  [[nodiscard]] f64 q() const;
+    [[nodiscard]] bool visited() const;
+    [[nodiscard]] bool terminal() const;
+    [[nodiscard]] bool expanded() const;
+    // Average of all scores this node has received
+    [[nodiscard]] f64 q() const;
 };
 ```
 The **game tree** is then defined as a tree of nodes that encode the relationships between nodes which also represent the possible lines of chess moves from a starting position.
@@ -131,6 +131,10 @@ is the score of a move associated with the child node, given by the policy netwo
 
 ### Expansion
 Once a node has been selected to be expanded, MCTS will create new child nodes for each legal move in the current position. Traditionally, the policy scores associated with each child node are also calculated during expansion.
+<br>
+<aside class="side-note">
+  This is actually a non-traditional definition of expansion. The more general definition of expansion in MCTS expands the selected node by only one child node then performs simulation on the child node.
+</aside>
 
 ### Simulation
 After the selected node gets expanded, we need to estimate how good this node is. An initial score for the node is typically obtained using a separate **value network** or as a part of one larger network that combines the policy and value outputs together.
@@ -149,41 +153,41 @@ this is the perfect place to make use of past knowledge (like the history of thi
 
 ```cpp
 void GameTree::compute_policy(const BoardState &state, NodeIndex node_idx) {
-  Node &node = node_at(node_idx);
+    Node &node = node_at(node_idx);
 
-  // We keep track of a policy context so that we only accumulate once per node
-  const network::policy::PolicyContext ctx(state);
+    // We keep track of a policy context so that we only accumulate once per node
+    const network::policy::PolicyContext ctx(state);
 
-  for (u16 i = 0; i < node.num_children; ++i) {
-    Node &child = node_at(node.first_child_idx + i);
+    for (u16 i = 0; i < node.num_children; ++i) {
+        Node &child = node_at(node.first_child_idx + i);
 
-    // Compute policy output for this move
-    const auto history_score = history_.entry(board_.state(), child.move).value / 16384.0;
-    child.policy_score = ctx.logit(child.move) + history_score; // History is applied here to each policy score (logit) we obtain!
-  }
+        // Compute policy output for this move
+        const auto history_score = history_.entry(board_.state(), child.move).value / 16384.0;
+        child.policy_score = ctx.logit(child.move) + history_score; // History is applied here to each policy score (logit) we obtain!
+    }
 
-  // Softmax and normalize the policy scores so that we get a distribution that adds to 1
-  ... 
+    // Softmax and normalize the policy scores so that we get a distribution that adds to 1
+    ... 
 }
 ```
 
 This is also how I implemented a wrapper for the butterfly history table:
 ```cpp
 [[nodiscard]] i16 scale_bonus(i16 score, i16 bonus) {
-  return bonus - score * std::abs(bonus) / 8192;
+    return bonus - score * std::abs(bonus) / 8192;
 }
 
 void History::Entry::update(f64 score) {
-  score = std::clamp(score, 0.001, 0.999);
-  value += scale_bonus(value, static_cast<i32>(network::value::EVAL_SCALE * util::math::inverse_sigmoid(score)));
+    score = std::clamp(score, 0.001, 0.999);
+    value += scale_bonus(value, static_cast<i32>(network::value::EVAL_SCALE * util::math::inverse_sigmoid(score)));
 }
 
 void History::clear() {
-  table_ = {};
+    table_ = {};
 }
 
 History::Entry &History::entry(const BoardState &state, Move move) {
-  return table_[state.side_to_move][move.from()][move.to()];
+    return table_[state.side_to_move][move.from()][move.to()];
 }
 ```
 

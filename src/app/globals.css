@@ -11,6 +11,7 @@
   --muted-text: #b8b8b8; /* maps roughly to gray-300/90 */
   --subtle-text: #9ca3af; /* gray-400 */
   --subtler-text: #6b7280; /* gray-500 */
+  --note-bar: rgba(255, 255, 255, 0.18);
 }
 
 /* Light theme overrides applied when <html class="light"> */
@@ -25,6 +26,7 @@
   --muted-text: #444;
   --subtle-text: #555;
   --subtler-text: #666;
+  --note-bar: rgba(0, 0, 0, 0.16);
 }
 
 html, body {
@@ -66,6 +68,9 @@ a:hover {
   transition: color 175ms ease;
 }
 
+/* Optional: inline side note variant */
+.prose .side-note-inline { color: var(--subtle-text); font-size: .9rem; }
+
 /* Theme-aware title color per project via CSS variables set inline */
 .project-card .project-title {
   color: var(--project-title-dark, currentColor);
@@ -83,6 +88,17 @@ a:hover {
 .prose ol { list-style: decimal; padding-left: 1.25rem; margin: .5rem 0; }
 .prose ul { list-style: disc; padding-left: 1.25rem; margin: .5rem 0; }
 .prose li { margin: .25rem 0; }
+
+/* GitHub-style side note with grey left bar */
+.prose aside.side-note,
+.prose div.side-note {
+  display: block;
+  margin: .75rem 0;
+  padding: .1rem 0 .1rem 1rem; /* room for the left bar */
+  border-left: 3px solid var(--note-bar);
+  color: var(--subtle-text);
+  font-size: .9rem;
+}
 
 /* Small superscript for inline asterisks */
 .prose sup {
